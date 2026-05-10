@@ -8,6 +8,11 @@ Live website: [https://www.corvo-project.eu/](https://www.corvo-project.eu/)
 
 Funded by: PNRR - Mission 4 - Component 2 - Investment 3.1 - MEET Project (Monitoring Earth's Evolution and Tectonics) - WP 11 ISPES - Action 11c.
 
+## Side projects
+
+- [CorVo annotation interface](https://github.com/ziorufus/corvo-annotation)
+- [CorVo map analysis draft](https://github.com/MaxCheroo/ProgettoCorvo)
+
 ## Project Structure
 
 - `frontend/`: Vue 3 and Vite application.
