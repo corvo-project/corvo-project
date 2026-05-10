@@ -1,0 +1,10 @@
+pandas
+openpyxl
+pdf2image
+python-dotenv
+mistralai
+PyPDF2
+
+fastapi
+uvicorn[standard]
+sqlalchemy

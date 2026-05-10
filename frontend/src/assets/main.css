@@ -1,0 +1,55 @@
+html, body {
+  background-color: #edddc4;
+  height: 100%;
+  margin: 0;
+}
+
+footer img {
+  max-height: 50px;
+  max-width: 80%;
+}
+
+main a, .page-link {
+  color: #7e270b !important;
+}
+
+.active > .page-link, .page-link.active {
+  background-color: #7e270b !important;
+  border-color: #7e270b !important;
+  color: white !important;
+}
+
+html, body {
+  font-family: "Open Sans", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  font-variation-settings:
+    "wdth" 100;
+}
+
+h1, h2, h3, h4, h5, h6, a.navbar-brand {
+  font-family: "Neuton", serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-bottom: 20px;
+}
+
+a.navbar-brand {
+  font-size: 1.5em;
+  padding-top: 0;
+  background-image: url('/corvo-alone.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  padding-left: 55px;
+  padding-right: 20px;
+}
+
+#home h1 {
+  font-size: 3.5em;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
