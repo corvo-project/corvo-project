@@ -84,9 +84,14 @@ def _resolve_doc(csv_doc_name: str, db_map: dict) -> Document | None:
     return None
 
 @router.post("/import/events")
-async def import_events(file: UploadFile = File(...), max_warnings: int = 100, db: Session = Depends(get_db)):
+async def import_events(file: UploadFile = File(...), clear: bool = False, max_warnings: int = 100, db: Session = Depends(get_db)):
     content = await file.read()
     reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
+
+    if clear:
+        deleted = db.query(Event).delete()
+        db.commit()
+        print(f"[import] Cleared {deleted} existing events", flush=True)
 
     db_map = _build_doc_mapping(db)
     print(f"[import] Loaded {len(db_map)} documents from DB", flush=True)
