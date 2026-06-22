@@ -1,9 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 #DATABASE_URL = "sqlite:////media/16TB/corvo-web/backend/data/data.sqlite"
 DATABASE_URL = os.getenv("DATABASE_URL")
