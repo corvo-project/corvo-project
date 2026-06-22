@@ -4,7 +4,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from ocr_indexer.database import SessionLocal
-from ocr_indexer.models import Document, Page, Event
+from ocr_indexer.models import Document, Page, Event, EventDescription
 from ocr_indexer.search import search_text
 
 router = APIRouter()
@@ -42,17 +42,35 @@ def get_page(document_id: int, page_number: int, db: Session = Depends(get_db)):
 
     page_data, document_data = page
 
+    events = (
+        db.query(Event, EventDescription)
+        .join(EventDescription, Event.event_type == EventDescription.id)
+        .filter(Event.page_id == page_data.id)
+        .all()
+    )
+
     return {
         "document_id": document_id,
         "document_author": document_data.author,
         "document_title": document_data.title,
         "file_name": document_data.file_name,
         "page_number": page_data.page_number,
-        "content": page_data.text_content
+        "content": page_data.text_content,
+        "events": _deduplicate_events(events),
     }
 @router.get("/search")
 def search(q: str, page: int = 1, page_size: int = 25, db: Session = Depends(get_db)):
     return search_text(db, q, page=page, page_size=page_size)
+
+def _deduplicate_events(events):
+    seen = set()
+    result = []
+    for ev, desc in events:
+        key = (ev.event_type, ev.offset)
+        if key not in seen:
+            seen.add(key)
+            result.append({"event_type": desc.description, "sentence": ev.sentence})
+    return result
 
 def _normalize(name: str, strip_suffix: str) -> str:
     if name.endswith(strip_suffix):
