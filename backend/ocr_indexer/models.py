@@ -11,6 +11,7 @@ class Document(Base):
     file_name = Column(String)
     total_pages = Column(Integer)
     pages = relationship("Page", back_populates="document")
+    toponyms = relationship("Toponym", back_populates="document")
 
 class Page(Base):
     __tablename__ = "pages"
@@ -22,6 +23,16 @@ class Page(Base):
 
     document = relationship("Document", back_populates="pages")
     events = relationship("Event", back_populates="page")
+
+class Toponym(Base):
+    __tablename__ = "toponyms"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    type = Column(String, nullable=False)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
+
+    document = relationship("Document", back_populates="toponyms")
 
 class EventDescription(Base):
     __tablename__ = "event_descriptions"
