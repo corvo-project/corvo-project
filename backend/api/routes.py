@@ -1,13 +1,31 @@
 import csv
 import io
+import os
 import re
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from ocr_indexer.database import SessionLocal
 from ocr_indexer.models import Document, Page, Event, EventDescription
 from ocr_indexer.search import search_text
 
 router = APIRouter()
+
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+def require_bearer_token(
+    request: Request,
+    creds: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+) -> None:
+    if request.method == "OPTIONS":
+        return
+    api_token = os.getenv("API_BEARER_TOKEN")
+    if not api_token:
+        raise HTTPException(status_code=500, detail="API_BEARER_TOKEN not configured")
+    if creds is None or creds.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Missing Bearer token")
+    if creds.credentials != api_token:
+        raise HTTPException(status_code=403, detail="Invalid token")
 
 def get_db():
     db = SessionLocal()
@@ -102,7 +120,7 @@ def _resolve_doc(csv_doc_name: str, db_map: dict) -> Document | None:
     return None
 
 @router.post("/import/events")
-async def import_events(file: UploadFile = File(...), clear: bool = False, max_warnings: int = 100, db: Session = Depends(get_db)):
+async def import_events(file: UploadFile = File(...), clear: bool = False, max_warnings: int = 100, db: Session = Depends(get_db), _: None = Depends(require_bearer_token)):
     content = await file.read()
     reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
 
