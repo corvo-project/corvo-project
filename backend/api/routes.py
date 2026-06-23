@@ -239,6 +239,11 @@ async def import_events(file: UploadFile = File(...), clear: bool = False, max_w
     return {"imported": imported, "total_warnings": total_warnings, "warnings": warnings}
 
 
+def _variant_in_text(name: str, text: str) -> bool:
+    if ' ' in name.strip():
+        return name.lower() in text.lower()
+    return name in text
+
 def _link_variants_to_pages(toponym_groups: list[list[tuple[int, str]]]) -> None:
     """
     For each page, process all variants globally sorted by length descending.
@@ -260,11 +265,12 @@ def _link_variants_to_pages(toponym_groups: list[list[tuple[int, str]]]) -> None
 
         for page_idx, (page_id, text_content) in enumerate(pages):
             if text_content:
-                accepted_names: list[str] = []
+                accepted_lower: list[str] = []
                 for variant_id, name in all_variants:
-                    if name not in text_content:
+                    if not _variant_in_text(name, text_content):
                         continue
-                    if any(name in accepted for accepted in accepted_names):
+                    name_lower = name.lower()
+                    if any(name_lower in acc and len(name_lower) < len(acc) for acc in accepted_lower):
                         continue
                     db.execute(
                         toponym_variant_pages.insert().values(
@@ -273,7 +279,7 @@ def _link_variants_to_pages(toponym_groups: list[list[tuple[int, str]]]) -> None
                         )
                     )
                     links_inserted += 1
-                    accepted_names.append(name)
+                    accepted_lower.append(name_lower)
 
             if (page_idx + 1) % milestone == 0 or page_idx + 1 == total_pages:
                 pct = round((page_idx + 1) / total_pages * 100)
