@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Table, Text
+from sqlalchemy import Column, Index, Integer, String, ForeignKey, Table, Text
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -7,6 +7,7 @@ toponym_variant_pages = Table(
     Base.metadata,
     Column("toponym_variant_id", Integer, ForeignKey("toponym_variants.id"), primary_key=True),
     Column("page_id", Integer, ForeignKey("pages.id"), primary_key=True),
+    Index("idx_tvp_page_id", "page_id"),
 )
 
 class Document(Base):
@@ -46,7 +47,7 @@ class ToponymVariant(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
-    toponym_id = Column(Integer, ForeignKey("toponyms.id"), nullable=False)
+    toponym_id = Column(Integer, ForeignKey("toponyms.id"), nullable=False, index=True)
 
     toponym = relationship("Toponym", back_populates="variants")
     pages = relationship("Page", secondary=toponym_variant_pages, back_populates="toponym_variants")
@@ -61,6 +62,10 @@ class EventDescription(Base):
 
 class Event(Base):
     __tablename__ = "events"
+    __table_args__ = (
+        Index("idx_events_page_id", "page_id"),
+        Index("idx_events_event_type", "event_type"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     page_id = Column(Integer, ForeignKey("pages.id"), nullable=False)

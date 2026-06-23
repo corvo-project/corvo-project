@@ -3,12 +3,13 @@ import io
 import json
 import os
 import re
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, File
+from typing import Optional
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from ocr_indexer.database import SessionLocal
 from ocr_indexer.models import Document, Page, Event, EventDescription, Toponym, ToponymVariant, toponym_variant_pages
-from ocr_indexer.search import search_text
+from ocr_indexer.search import search_text, search_advanced
 
 router = APIRouter()
 
@@ -75,13 +76,14 @@ def get_page(document_id: int, page_number: int, db: Session = Depends(get_db)):
         .filter(toponym_variant_pages.c.page_id == page_data.id)
         .all()
     )
-    seen_toponym_ids = set()
+    seen_variant_ids = set()
     toponyms_list = []
     for variant, toponym in toponyms:
-        if toponym.id not in seen_toponym_ids:
-            seen_toponym_ids.add(toponym.id)
+        if variant.id not in seen_variant_ids:
+            seen_variant_ids.add(variant.id)
             toponyms_list.append({
-                "name": toponym.name,
+                "variant_name": variant.name,
+                "canonical_name": toponym.name,
                 "type": toponym.type,
                 "location_info": toponym.location_info,
             })
@@ -96,9 +98,39 @@ def get_page(document_id: int, page_number: int, db: Session = Depends(get_db)):
         "events": _deduplicate_events(events),
         "toponyms": toponyms_list,
     }
+@router.get("/event-types")
+def get_event_types(db: Session = Depends(get_db)):
+    rows = db.query(EventDescription).order_by(EventDescription.description).all()
+    return [{"id": r.id, "description": r.description} for r in rows]
+
+@router.get("/toponyms")
+def get_toponyms(db: Session = Depends(get_db)):
+    rows = db.query(Toponym).order_by(Toponym.name).all()
+    return [{"id": r.id, "name": r.name} for r in rows]
+
 @router.get("/search")
 def search(q: str, page: int = 1, page_size: int = 25, db: Session = Depends(get_db)):
     return search_text(db, q, page=page, page_size=page_size)
+
+@router.get("/advanced-search")
+def advanced_search(
+    q: Optional[str] = None,
+    events: Optional[str] = None,
+    event_mode: str = "OR",
+    toponyms: Optional[str] = None,
+    toponym_mode: str = "OR",
+    page: int = 1,
+    page_size: int = 25,
+    db: Session = Depends(get_db),
+):
+    event_ids = [int(x) for x in events.split(",") if x.strip()] if events else []
+    toponym_ids = [int(x) for x in toponyms.split(",") if x.strip()] if toponyms else []
+    return search_advanced(
+        db, query=q,
+        event_ids=event_ids, event_mode=event_mode.upper(),
+        toponym_ids=toponym_ids, toponym_mode=toponym_mode.upper(),
+        page=page, page_size=page_size,
+    )
 
 def _deduplicate_events(events):
     seen = set()
@@ -207,17 +239,33 @@ async def import_events(file: UploadFile = File(...), clear: bool = False, max_w
     return {"imported": imported, "total_warnings": total_warnings, "warnings": warnings}
 
 
-def _link_variants_to_pages(variant_ids_and_names: list[tuple[int, str]]) -> None:
+def _link_variants_to_pages(toponym_groups: list[list[tuple[int, str]]]) -> None:
+    """
+    For each page, process all variants globally sorted by length descending.
+    Accept a variant only if its name is found in the text AND is not a substring
+    of any already-accepted longer name (cross-toponym deduplication).
+    """
     db = SessionLocal()
     try:
         pages = db.query(Page.id, Page.text_content).all()
-        total = len(variant_ids_and_names)
-        milestone = max(1, total // 10)
+        total_pages = len(pages)
+        milestone = max(1, total_pages // 10)
         links_inserted = 0
 
-        for i, (variant_id, name) in enumerate(variant_ids_and_names):
-            for page_id, text_content in pages:
-                if text_content and name in text_content:
+        all_variants = sorted(
+            [item for group in toponym_groups for item in group],
+            key=lambda x: len(x[1]),
+            reverse=True,
+        )
+
+        for page_idx, (page_id, text_content) in enumerate(pages):
+            if text_content:
+                accepted_names: list[str] = []
+                for variant_id, name in all_variants:
+                    if name not in text_content:
+                        continue
+                    if any(name in accepted for accepted in accepted_names):
+                        continue
                     db.execute(
                         toponym_variant_pages.insert().values(
                             toponym_variant_id=variant_id,
@@ -225,10 +273,11 @@ def _link_variants_to_pages(variant_ids_and_names: list[tuple[int, str]]) -> Non
                         )
                     )
                     links_inserted += 1
+                    accepted_names.append(name)
 
-            if (i + 1) % milestone == 0 or i + 1 == total:
-                pct = round((i + 1) / total * 100)
-                print(f"[toponyms] {pct}% ({i + 1}/{total} variants processed, {links_inserted} links so far)", flush=True)
+            if (page_idx + 1) % milestone == 0 or page_idx + 1 == total_pages:
+                pct = round((page_idx + 1) / total_pages * 100)
+                print(f"[toponyms] {pct}% ({page_idx + 1}/{total_pages} pages, {links_inserted} links so far)", flush=True)
 
         db.commit()
         print(f"[toponyms] Background task complete: {links_inserted} total links inserted", flush=True)
@@ -258,7 +307,8 @@ async def import_toponyms(
         print("[toponyms] Cleared existing toponyms, variants and links", flush=True)
 
     toponym_count = 0
-    variant_ids_and_names: list[tuple[int, str]] = []
+    toponym_groups: list[list[tuple[int, str]]] = []
+    total_variants = 0
 
     for loc in locations:
         location_info = loc.get("location_info")
@@ -271,21 +321,25 @@ async def import_toponyms(
         db.flush()
 
         names = list(dict.fromkeys([loc["name"]] + loc.get("alternate_names", [])))
+        group: list[tuple[int, str]] = []
         for name in names:
             variant = ToponymVariant(name=name, toponym_id=toponym.id)
             db.add(variant)
             db.flush()
-            variant_ids_and_names.append((variant.id, name))
+            group.append((variant.id, name))
 
+        group.sort(key=lambda x: len(x[1]), reverse=True)  # longest name first
+        toponym_groups.append(group)
         toponym_count += 1
+        total_variants += len(group)
 
     db.commit()
-    print(f"[toponyms] Inserted {toponym_count} toponyms, {len(variant_ids_and_names)} variants — starting background search", flush=True)
+    print(f"[toponyms] Inserted {toponym_count} toponyms, {total_variants} variants — starting background search", flush=True)
 
-    background_tasks.add_task(_link_variants_to_pages, variant_ids_and_names)
+    background_tasks.add_task(_link_variants_to_pages, toponym_groups)
 
     return {
         "toponyms_imported": toponym_count,
-        "variants_created": len(variant_ids_and_names),
+        "variants_created": total_variants,
         "status": "text search running in background",
     }

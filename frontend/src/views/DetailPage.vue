@@ -45,7 +45,7 @@
           <p class="text-muted fst-italic" v-if="toponyms.length === 0">Non ci sono toponimi</p>
           <ul class="list-group" v-else>
             <li class="list-group-item" v-for="(t, i) in toponyms" :key="i">
-              {{ t.name }}
+              {{ t.variant_name }}<span v-if="t.variant_name !== t.canonical_name" class="text-muted"> ({{ t.canonical_name }})</span>
             </li>
           </ul>
         </div>

@@ -24,6 +24,9 @@
             <li class="nav-item">
               <router-link class="nav-link" to="/staff">Staff</router-link>
             </li>
+            <li class="nav-item">
+              <router-link class="nav-link" :to="{ name: 'SearchResults' }">Advanced search</router-link>
+            </li>
           </ul>
           <form class="d-flex" @submit.prevent="submitSearch">
             <input
