@@ -1,6 +1,13 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Table, Text
 from sqlalchemy.orm import relationship
 from .database import Base
+
+toponym_variant_pages = Table(
+    "toponym_variant_pages",
+    Base.metadata,
+    Column("toponym_variant_id", Integer, ForeignKey("toponym_variants.id"), primary_key=True),
+    Column("page_id", Integer, ForeignKey("pages.id"), primary_key=True),
+)
 
 class Document(Base):
     __tablename__ = "documents"
@@ -11,7 +18,6 @@ class Document(Base):
     file_name = Column(String)
     total_pages = Column(Integer)
     pages = relationship("Page", back_populates="document")
-    toponyms = relationship("Toponym", back_populates="document")
 
 class Page(Base):
     __tablename__ = "pages"
@@ -23,6 +29,7 @@ class Page(Base):
 
     document = relationship("Document", back_populates="pages")
     events = relationship("Event", back_populates="page")
+    toponym_variants = relationship("ToponymVariant", secondary=toponym_variant_pages, back_populates="pages")
 
 class Toponym(Base):
     __tablename__ = "toponyms"
@@ -30,9 +37,19 @@ class Toponym(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     type = Column(String, nullable=False)
-    document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
+    location_info = Column(String)
 
-    document = relationship("Document", back_populates="toponyms")
+    variants = relationship("ToponymVariant", back_populates="toponym")
+
+class ToponymVariant(Base):
+    __tablename__ = "toponym_variants"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    toponym_id = Column(Integer, ForeignKey("toponyms.id"), nullable=False)
+
+    toponym = relationship("Toponym", back_populates="variants")
+    pages = relationship("Page", secondary=toponym_variant_pages, back_populates="toponym_variants")
 
 class EventDescription(Base):
     __tablename__ = "event_descriptions"
