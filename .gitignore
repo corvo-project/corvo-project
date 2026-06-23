@@ -3,6 +3,7 @@ backend/.env
 backend/data
 backend/_tmp
 frontend/node_modules
+frontend/dist
 frontend/package-lock.json
 frontend/.env
 __pycache__
