@@ -1,12 +1,13 @@
 import csv
 import io
+import json
 import os
 import re
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from ocr_indexer.database import SessionLocal
-from ocr_indexer.models import Document, Page, Event, EventDescription
+from ocr_indexer.models import Document, Page, Event, EventDescription, Toponym, ToponymVariant, toponym_variant_pages
 from ocr_indexer.search import search_text
 
 router = APIRouter()
@@ -185,3 +186,87 @@ async def import_events(file: UploadFile = File(...), clear: bool = False, max_w
     db.commit()
     print(f"[import] Done: {imported} imported, {total_warnings} warnings", flush=True)
     return {"imported": imported, "total_warnings": total_warnings, "warnings": warnings}
+
+
+def _link_variants_to_pages(variant_ids_and_names: list[tuple[int, str]]) -> None:
+    db = SessionLocal()
+    try:
+        pages = db.query(Page.id, Page.text_content).all()
+        total = len(variant_ids_and_names)
+        milestone = max(1, total // 10)
+        links_inserted = 0
+
+        for i, (variant_id, name) in enumerate(variant_ids_and_names):
+            for page_id, text_content in pages:
+                if text_content and name in text_content:
+                    db.execute(
+                        toponym_variant_pages.insert().values(
+                            toponym_variant_id=variant_id,
+                            page_id=page_id,
+                        )
+                    )
+                    links_inserted += 1
+
+            if (i + 1) % milestone == 0 or i + 1 == total:
+                pct = round((i + 1) / total * 100)
+                print(f"[toponyms] {pct}% ({i + 1}/{total} variants processed, {links_inserted} links so far)", flush=True)
+
+        db.commit()
+        print(f"[toponyms] Background task complete: {links_inserted} total links inserted", flush=True)
+    except Exception as e:
+        db.rollback()
+        print(f"[toponyms] Background task error: {e}", flush=True)
+    finally:
+        db.close()
+
+
+@router.post("/import/toponyms")
+async def import_toponyms(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    clear: bool = False,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_bearer_token),
+):
+    content = await file.read()
+    locations = json.loads(content.decode("utf-8"))
+
+    if clear:
+        db.execute(toponym_variant_pages.delete())
+        db.query(ToponymVariant).delete()
+        db.query(Toponym).delete()
+        db.commit()
+        print("[toponyms] Cleared existing toponyms, variants and links", flush=True)
+
+    toponym_count = 0
+    variant_ids_and_names: list[tuple[int, str]] = []
+
+    for loc in locations:
+        location_info = loc.get("location_info")
+        toponym = Toponym(
+            name=loc["name"],
+            type=loc["type"],
+            location_info=json.dumps(location_info, ensure_ascii=False) if location_info else None,
+        )
+        db.add(toponym)
+        db.flush()
+
+        names = list(dict.fromkeys([loc["name"]] + loc.get("alternate_names", [])))
+        for name in names:
+            variant = ToponymVariant(name=name, toponym_id=toponym.id)
+            db.add(variant)
+            db.flush()
+            variant_ids_and_names.append((variant.id, name))
+
+        toponym_count += 1
+
+    db.commit()
+    print(f"[toponyms] Inserted {toponym_count} toponyms, {len(variant_ids_and_names)} variants — starting background search", flush=True)
+
+    background_tasks.add_task(_link_variants_to_pages, variant_ids_and_names)
+
+    return {
+        "toponyms_imported": toponym_count,
+        "variants_created": len(variant_ids_and_names),
+        "status": "text search running in background",
+    }
