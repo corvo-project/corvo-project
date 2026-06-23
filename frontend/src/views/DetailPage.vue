@@ -29,14 +29,26 @@
           <pre>{{ text }}</pre>
         </div>
       </div>
-      <div class="col-12 mt-4" v-if="events.length > 0">
-        <h5>Eventi</h5>
-        <ul class="list-group">
-          <li class="list-group-item" v-for="(ev, i) in events" :key="i">
-            <span class="badge bg-secondary me-2">{{ ev.event_type }}</span>
-            {{ ev.sentence }}
-          </li>
-        </ul>
+      <div class="row mt-4">
+        <div class="col-12 col-md-6">
+          <h5>Eventi</h5>
+          <p class="text-muted fst-italic" v-if="events.length === 0">Non ci sono eventi</p>
+          <ul class="list-group" v-else>
+            <li class="list-group-item" v-for="(ev, i) in events" :key="i">
+              <span class="badge bg-secondary me-2">{{ ev.event_type }}</span>
+              {{ ev.sentence }}
+            </li>
+          </ul>
+        </div>
+        <div class="col-12 col-md-6">
+          <h5>Toponimi</h5>
+          <p class="text-muted fst-italic" v-if="toponyms.length === 0">Non ci sono toponimi</p>
+          <ul class="list-group" v-else>
+            <li class="list-group-item" v-for="(t, i) in toponyms" :key="i">
+              {{ t.name }}
+            </li>
+          </ul>
+        </div>
       </div>
       <div class="d-flex justify-content-center align-items-center gap-3 mt-4 col-12">
         <button class="btn btn-primary me-2" @click="prevPage" :disabled="currentPage <= 1">Previous</button>
@@ -63,6 +75,7 @@ const imageLoaded = ref(false)
 const docLoaded = ref(false)
 const page_info = ref({})
 const events = ref([])
+const toponyms = ref([])
 
 function onImageLoad() {
   imageLoaded.value = true
@@ -88,6 +101,7 @@ function loadPage() {
         text.value = data.content
         page_info.value = data
         events.value = data.events || []
+        toponyms.value = data.toponyms || []
         docLoaded.value = true
         imageLoaded.value = false
         imageUrl.value = `${import.meta.env.VITE_API_BASE_URL}/static/${data.file_name}/page-${currentPage.value.toString().padStart(3, '0')}.jpg`

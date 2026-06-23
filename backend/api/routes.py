@@ -68,6 +68,24 @@ def get_page(document_id: int, page_number: int, db: Session = Depends(get_db)):
         .all()
     )
 
+    toponyms = (
+        db.query(ToponymVariant, Toponym)
+        .join(Toponym, ToponymVariant.toponym_id == Toponym.id)
+        .join(toponym_variant_pages, toponym_variant_pages.c.toponym_variant_id == ToponymVariant.id)
+        .filter(toponym_variant_pages.c.page_id == page_data.id)
+        .all()
+    )
+    seen_toponym_ids = set()
+    toponyms_list = []
+    for variant, toponym in toponyms:
+        if toponym.id not in seen_toponym_ids:
+            seen_toponym_ids.add(toponym.id)
+            toponyms_list.append({
+                "name": toponym.name,
+                "type": toponym.type,
+                "location_info": toponym.location_info,
+            })
+
     return {
         "document_id": document_id,
         "document_author": document_data.author,
@@ -76,6 +94,7 @@ def get_page(document_id: int, page_number: int, db: Session = Depends(get_db)):
         "page_number": page_data.page_number,
         "content": page_data.text_content,
         "events": _deduplicate_events(events),
+        "toponyms": toponyms_list,
     }
 @router.get("/search")
 def search(q: str, page: int = 1, page_size: int = 25, db: Session = Depends(get_db)):
