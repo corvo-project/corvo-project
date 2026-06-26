@@ -106,7 +106,15 @@ def get_event_types(db: Session = Depends(get_db)):
 @router.get("/toponyms")
 def get_toponyms(db: Session = Depends(get_db)):
     rows = db.query(Toponym).order_by(Toponym.name).all()
-    return [{"id": r.id, "name": r.name} for r in rows]
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "type": r.type,
+            "location_info": json.loads(r.location_info) if r.location_info else None,
+        }
+        for r in rows
+    ]
 
 @router.get("/search")
 def search(q: str, page: int = 1, page_size: int = 25, db: Session = Depends(get_db)):

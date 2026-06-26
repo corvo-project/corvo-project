@@ -9,17 +9,15 @@
                 layer-type="base"
                 name="OpenStreetMap">
             </l-tile-layer>
-            <l-marker v-for="comune in comuni" :lat-lng="comune.coordinates" :name="comune.name">
+            <l-marker v-for="pin in pins" :key="pin.id" :lat-lng="pin.coordinates">
               <l-popup>
-                <strong>{{ comune.name }}</strong><br/>
-                <a :href="`${baseUrl}search/?q=${comune.search_text}`">
+                <strong>{{ pin.name }}</strong><br/>
+                <router-link :to="{ name: 'SearchResults', query: { toponyms: pin.id } }">
                   Cerca documenti
-                </a>
+                </router-link>
               </l-popup>
-
             </l-marker>
           </l-map>
-
         </div>
       </div>
     </div>
@@ -28,78 +26,40 @@
 
 <script setup>
 import "leaflet/dist/leaflet.css"
-import {LMap, LMarker, LPopup, LTileLayer} from "@vue-leaflet/vue-leaflet"
-import {ref} from "vue";
+import { LMap, LMarker, LPopup, LTileLayer } from "@vue-leaflet/vue-leaflet"
+import { ref, onMounted } from "vue"
 
-const baseUrl = ref(import.meta.env.VITE_BASE_URL || 'http://localhost:8000/')
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/'
 
-let comuni = ref([
-  {
-    name: "Napoli",
-    coordinates: [40.8522, 14.2681],
-    search_text: "Napoli"
-  },
-  {
-    name: "San Sebastiano al Vesuvio",
-    coordinates: [40.8439852, 14.3544226],
-    search_text: "San Sebastiano"
-  },
-  {
-    name: "Massa di Somma",
-    coordinates: [40.8455419, 14.3659948],
-    search_text: "Massa di Somma"
-  },
-  {
-    name: "Torre del Greco",
-    coordinates: [40.7863759, 14.3539744],
-    search_text: "Torre del Greco"
-  },
-  {
-    name: "Scafati",
-    coordinates: [40.7637079, 14.4997287],
-    search_text: "Scafati"
-  },
-  {
-    name: "Cercola",
-    coordinates: [40.8622339, 14.3399324],
-    search_text: "Cercola"
-  },
-  {
-    name: "Boscotrecase",
-    coordinates: [40.7727937, 14.4510311],
-    search_text: "Boscotrecase"
-  },
-  {
-    name: "Terzigno",
-    coordinates: [40.7999227, 14.4390794],
-    search_text: "Terzigno"
-  },
-  {
-    name: "Poggiomarino",
-    coordinates: [40.8027593, 14.5199671],
-    search_text: "Poggiomarino"
-  },
-  {
-    name: "Pollena",
-    coordinates: [40.8593657, 14.3464187],
-    search_text: "Pollena"
-  },
-  {
-    name: "Pompei",
-    coordinates: [40.7466178, 14.4730826],
-    search_text: "Pompei"
-  },
-  {
-    name: "Ercolano",
-    coordinates: [40.8153357, 14.3433472],
-    search_text: "Ercolano"
-  },
-])
+const zoom = ref(11)
+const center = ref([40.822317, 14.3588341])
+const pins = ref([])
 
-// import arcades from "./arcades.json"
+function midpoint(coordinates) {
+  const n = coordinates.length
+  const sumLat = coordinates.reduce((s, c) => s + c[0], 0)
+  const sumLng = coordinates.reduce((s, c) => s + c[1], 0)
+  return [sumLat / n, sumLng / n]
+}
 
-let zoom = ref(11)
-let center = ref([40.822317, 14.3588341])
+onMounted(async () => {
+  const toponyms = await fetch(`${baseUrl}toponyms`).then(r => r.json())
+  const result = []
+  for (const t of toponyms) {
+    const marker = t.location_info?.marker
+    if (!marker) continue
+    if (marker.type === 'circle' || marker.type === 'simple') {
+      if (marker.lat != null && marker.lng != null) {
+        result.push({ id: t.id, name: t.name, coordinates: [marker.lat, marker.lng] })
+      }
+    } else if (marker.type === 'line') {
+      if (Array.isArray(marker.coordinates) && marker.coordinates.length > 0) {
+        result.push({ id: t.id, name: t.name, coordinates: midpoint(marker.coordinates) })
+      }
+    }
+  }
+  pins.value = result
+})
 </script>
 
 <style>
@@ -107,5 +67,4 @@ let center = ref([40.822317, 14.3588341])
   height: 85vh;
   width: 100vw;
 }
-
 </style>
