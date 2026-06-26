@@ -6,19 +6,19 @@
       <thead>
         <tr>
           <th @click="sortBy('author')" style="cursor:pointer">
-            <span style="font-weight:bold">Author</span>
+            <nobr><span style="font-weight:bold">Author</span>
             <span v-if="sortKey === 'author' && sortOrder === 1"> &#9650;</span>
-            <span v-if="sortKey === 'author' && sortOrder === -1"> &#9660;</span>
+            <span v-if="sortKey === 'author' && sortOrder === -1"> &#9660;</span></nobr>
           </th>
           <th @click="sortBy('title')" style="cursor:pointer">
-            <span style="font-weight:bold">Title</span>
+            <nobr><span style="font-weight:bold">Title</span>
             <span v-if="sortKey === 'title' && sortOrder === 1"> &#9650;</span>
-            <span v-if="sortKey === 'title' && sortOrder === -1"> &#9660;</span>
+            <span v-if="sortKey === 'title' && sortOrder === -1"> &#9660;</span></nobr>
           </th>
           <th @click="sortBy('year')" style="cursor:pointer">
-            <span style="font-weight:bold">Year</span>
+            <nobr><span style="font-weight:bold">Year</span>
             <span v-if="sortKey === 'year' && sortOrder === 1"> &#9650;</span>
-            <span v-if="sortKey === 'year' && sortOrder === -1"> &#9660;</span>
+            <span v-if="sortKey === 'year' && sortOrder === -1"> &#9660;</span></nobr>
           </th>
           <th>&nbsp;</th>
           <th>&nbsp;</th>
