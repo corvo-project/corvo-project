@@ -8,7 +8,7 @@
         “Extracting Volcanological Knowledge from Historical Texts: A Language-Technology Pipeline for Diachronic Geovisualization”.
         Oral presentation at the <em>Workshop on Language Technologies for Historical and Ancient Languages (LT4HALA).</em>
         Palma (Spain), 11 May 2026.
-        <a href="http://lrec-conf.org/proceedings/lrec2026/workshops/lt4hala/2026.lt4hala-1.0.pdf">[Link]</a>
+        <a href="http://www.lrec-conf.org/proceedings/lrec2026/workshops/lt4hala/pdf/2026.lt4hala-1.4.pdf">[Link]</a>
       </li>
       <li>
         Principe, C., Marini, C., Aprosio, A. (2025).
