@@ -1,0 +1,9 @@
+.env
+.env-example
+data
+_tmp
+**/__pycache__
+**/*.pyc
+Dockerfile
+docker-compose.yml
+.dockerignore

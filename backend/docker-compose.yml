@@ -1,0 +1,16 @@
+name: corvo-web
+
+services:
+  api:
+    build: .
+    container_name: corvo-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8500}:8500"
+    env_file:
+      - .env
+    environment:
+      # Overrides the path in .env so it points to the mounted volume
+      DATABASE_URL: sqlite:////app/data/data.sqlite
+    volumes:
+      - ./data:/app/data
