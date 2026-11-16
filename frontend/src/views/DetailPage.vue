@@ -104,7 +104,7 @@ function loadPage() {
         toponyms.value = data.toponyms || []
         docLoaded.value = true
         imageLoaded.value = false
-        imageUrl.value = `${import.meta.env.VITE_API_BASE_URL}/static/${data.file_name}/page-${currentPage.value.toString().padStart(3, '0')}.jpg`
+        imageUrl.value = `${baseUrl}static/${data.file_name}/page-${currentPage.value.toString().padStart(3, '0')}.jpg`
       })
       .catch(error => {
         console.error('Page load error:', error)
